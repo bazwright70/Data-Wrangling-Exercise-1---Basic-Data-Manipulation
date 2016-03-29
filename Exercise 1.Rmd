@@ -1,0 +1,61 @@
+# Basic Exercise - Data Manipulation
+
+## Introduction
+
+The aim is to clean the data, which I will do step by step
+
+### Step 1 - Load the appropriate libraries and the CSV file into a dataframe
+```{r message=FALSE}
+library(tidyr)
+library(dplyr)
+raw_data <- read.csv("refine_original.csv")
+raw_data <- tbl_df(raw_data)
+```
+
+### Step 2 - Arrange data alphabetically and sort company column to lower case
+```{r}
+clean_data <- raw_data %>% 
+  arrange(company) %>% 
+  mutate_each(funs(tolower),matches("company"))
+```
+
+### Step 3 - Correct typos manually by changing values using R
+```{r}
+clean_data[1:7,1] = "akzo"
+clean_data[8:16,1] = "philips"
+clean_data[17:20,1] = "unilever"
+clean_data[21:25,1] = "van houten"
+```
+
+### Step 4 - Separate product and code number using tidyr
+```{r}
+clean_data <- separate(clean_data,"Product.code...number", c("product_code", "product_number"), sep = "-")
+```
+
+### Step 5 Add product categories
+* p = smartphone, v = TV, x = laptop, q = tablet
+* The method I'll use is to create a matrix with the relevant information and join it with the existing dataframe
+```{r results="hide", warning=FALSE}
+product <- c("Smartphone", "TV", "Laptop", "Tablet")
+product_code <- c("p", "v", "x", "q")
+product_df <- data.frame(product, product_code)
+clean_data <- left_join(clean_data, product_df, by="product_code")
+```
+
+### Step 6 - Concatenate address columns for geocoding
+```{r}
+clean_data <- unite_(clean_data, "full_address", c("address","city","country"), sep=", ", remove = FALSE)
+```
+
+### Step 7 - Create dummy variables for company and product category
+```{r}
+data_wdummy <- clean_data %>% 
+  mutate(company_akzo = ifelse(company == "akzo", 1, 0), company_philips = ifelse(company == "philips", 1,0), company_unilever = ifelse(company == "unilever",1,0), company_van_houten = ifelse(company == "van houten", 1,0)) %>% 
+  mutate(product_smartphone = ifelse(product == "Smartphone",1,0), product_tablet = ifelse(product == "Tablet",1,0), product_tv = ifelse(product == "TV",1,0), product_laptop = ifelse(product == "Laptop",1,0))
+```
+
+### Step 8 - Arrange by address for easy geolocalisation and generate final csv file
+```{r}
+final_data <- data_wdummy %>% arrange(desc(full_address))
+write.csv(final_data, file = "refine_clean.csv")
+```
